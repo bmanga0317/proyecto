@@ -1,0 +1,101 @@
+﻿Version=7.01
+NumberOfModules=3
+Module1=Starter
+Module2=GoogleOAuth2
+Module3=MailCreator
+Build1=Default,b4a.googlecontacts
+ManifestCode='This code will be applied to the manifest file during compilation.~\n~'You do not need to modify it in most cases.~\n~'See this link for for more information: https://www.b4x.com/forum/showthread.php?p=78136~\n~AddManifestText(~\n~<uses-sdk android:minSdkVersion="5" android:targetSdkVersion="19"/>~\n~<supports-screens android:largeScreens="true" ~\n~    android:normalScreens="true" ~\n~    android:smallScreens="true" ~\n~    android:anyDensity="true"/>)~\n~SetApplicationAttribute(android:icon, "@drawable/icon")~\n~SetApplicationAttribute(android:label, "$LABEL$")~\n~'End of default text.~\n~AddActivityText(Main,~\n~  <intent-filter>~\n~  <action android:name="android.intent.action.VIEW" />~\n~  <category android:name="android.intent.category.DEFAULT" />~\n~  <category android:name="android.intent.category.BROWSABLE" />~\n~  <data android:scheme="$PACKAGE$" />~\n~  </intent-filter>~\n~   )
+IconFile=
+NumberOfFiles=2
+File1=1.bal
+File2=android.png
+NumberOfLibraries=7
+Library1=core
+Library2=okhttputils2
+Library3=stringutils
+Library4=okhttp
+Library5=randomaccessfile
+Library6=phone
+Library7=json
+@EndOfDesignText@
+#Region  Project Attributes 
+	#ApplicationLabel: B4A Example
+	#VersionCode: 1
+	#VersionName: 
+	'SupportedOrientations possible values: unspecified, landscape or portrait.
+	#SupportedOrientations: unspecified
+	#CanInstallToExternalStorage: False
+#End Region
+
+#Region  Activity Attributes 
+	#FullScreen: False
+	#IncludeTitle: True
+#End Region
+
+Sub Process_Globals
+	'These global variables will be declared once when the application starts.
+	'These variables can be accessed from all modules.
+	Private oauth2 As GoogleOAuth2
+	Private ClientId As String = "xxxxxxxxxxxxxxxxxxxxxxxxxu4gaqqtk.apps.googleusercontent.com"
+End Sub
+
+Sub Globals
+	'These global variables will be redeclared each time the activity is created.
+	'These variables can only be accessed from this module.
+
+End Sub
+
+Sub Activity_Create(FirstTime As Boolean)
+	If FirstTime Then
+		oauth2.Initialize(Me, "oauth2", ClientId, "https://www.googleapis.com/auth/gmail.send")
+	End If
+	Activity.LoadLayout("1")
+End Sub
+
+Sub Activity_Resume
+	oauth2.CallFromResume(Activity.GetStartingIntent)
+End Sub
+
+Sub Activity_Pause (UserClosed As Boolean)
+
+End Sub
+
+Sub Button1_Click
+	Dim msg As MailCreator
+	msg.Initialize
+	msg.HtmlBody = True
+	msg.ToList.Add("erel@basic4ppc.com")
+	msg.Subject = "test"
+	msg.Body = $"First line<br/>second line"$
+	'add attachment
+	Dim fd As MultipartFileData
+	fd.ContentType = "image/jpeg"
+	fd.Dir = File.DirAssets
+	fd.FileName = "android.png"
+	msg.Attachments.Add(fd)
+	Send(msg)
+End Sub
+
+Sub Send (msg As MailCreator)
+	oauth2.GetAccessToken
+	Wait For OAuth2_AccessTokenAvailable (Success As Boolean, Token As String)
+	If Success = False Then
+		Log("Error accessing account.")
+		Return
+	End If
+	Dim j As HttpJob
+	j.Initialize("", Me)
+	j.PostString("https://www.googleapis.com/upload/gmail/v1/users/me/messages/send?uploadType=multipart", msg.ToString)
+	j.GetRequest.SetHeader("Authorization", "Bearer " & Token)
+	j.GetRequest.SetContentType("message/rfc822")
+	Wait For (j) JobDone(j As HttpJob)
+	If j.Success Then
+		Log("Mail sent successfully")
+		Log(j.GetString)
+		ToastMessageShow("Message sent", True)
+	Else
+		Log("Failed to send mail.")
+	End If
+	j.Release
+	Log("Done!!!")
+End Sub
